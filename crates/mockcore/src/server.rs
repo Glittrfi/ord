@@ -266,7 +266,7 @@ impl Api for Server {
         nextblockhash: None,
       };
 
-      return Ok(serde_json::to_string(&block_result).unwrap());
+      return Ok(hex::encode(serde_json::to_vec(&block_result).unwrap()));
     }
 
     assert_eq!(verbosity, 0, "Verbosity level {verbosity} is unsupported");
