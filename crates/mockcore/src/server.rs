@@ -2,7 +2,7 @@ use {
   super::*,
   base64::Engine,
   bitcoin::{consensus::Decodable, psbt::Psbt, Witness},
-  bitcoincore_rpc::json::StringOrStringArray,
+  bitcoincore_rpc::json::{GetBlockResult, StringOrStringArray},
 };
 
 pub(crate) struct Server {
@@ -222,11 +222,56 @@ impl Api for Server {
     block_hash: BlockHash,
     verbosity: u64,
   ) -> Result<String, jsonrpc_core::Error> {
-    assert_eq!(verbosity, 0, "Verbosity level {verbosity} is unsupported");
-    match self.state().blocks.get(&block_hash) {
-      Some(block) => Ok(hex::encode(serialize(block))),
-      None => Err(Self::not_found()),
+    let state = self.state();
+
+    let block = match state.blocks.get(&block_hash) {
+      Some(block) => block,
+      None => return Err(Self::not_found()),
+    };
+
+    if verbosity == 1 {
+      println!("get_block with verbosity 1 is not completely implemented yet");
+
+      let tx: Vec<Txid> = block.txdata.iter().map(|tx| tx.compute_txid()).collect();
+      if tx.len() == 0 {
+        return Err(jsonrpc_core::Error::new(
+          jsonrpc_core::types::error::ErrorCode::ServerError(-8),
+        ));
+      };
+      let Some(block_height) = state.txid_to_block_height.get(&tx[0]) else {
+        return Err(jsonrpc_core::Error::new(
+          jsonrpc_core::types::error::ErrorCode::ServerError(-8),
+        ));
+      };
+
+      let block_result = GetBlockResult {
+        hash: block_hash,
+        confirmations: 0,
+        size: 0,
+        strippedsize: None,
+        weight: 0,
+        height: *block_height as usize,
+        version: 0,
+        version_hex: None,
+        merkleroot: TxMerkleNode::all_zeros(),
+        tx,
+        time: 0,
+        mediantime: None,
+        nonce: 0,
+        bits: String::new(),
+        difficulty: 0.0,
+        chainwork: Vec::new(),
+        n_tx: 0,
+        previousblockhash: None,
+        nextblockhash: None,
+      };
+
+      return Ok(serde_json::to_string(&block_result).unwrap());
     }
+
+    assert_eq!(verbosity, 0, "Verbosity level {verbosity} is unsupported");
+
+    Ok(hex::encode(serialize(block)))
   }
 
   fn get_block_count(&self) -> Result<u64, jsonrpc_core::Error> {
