@@ -642,6 +642,27 @@ impl Api for Server {
       }
     }
 
+    let Some(block_height) = state.txid_to_block_height.get(&txid) else {
+      return Err(jsonrpc_core::Error::new(
+        jsonrpc_core::types::error::ErrorCode::ServerError(-8),
+      ));
+    };
+
+    let block_hash = state.hashes[*block_height as usize];
+    let Some(block) = state.blocks.get(&block_hash) else {
+      return Err(jsonrpc_core::Error::new(
+        jsonrpc_core::types::error::ErrorCode::ServerError(-8),
+      ));
+    };
+
+    let mut block_index = 0;
+    for (i, tx) in block.txdata.iter().enumerate() {
+      if tx.txid() == txid {
+        block_index = i;
+        break;
+      }
+    }
+
     Ok(
       serde_json::to_value(GetTransactionResult {
         info: WalletTxInfo {
@@ -649,9 +670,9 @@ impl Api for Server {
           confirmations: confirmations.unwrap().try_into().unwrap(),
           time: 0,
           timereceived: 0,
-          blockhash: None,
-          blockindex: None,
-          blockheight: None,
+          blockhash: Some(block_hash),
+          blockindex: Some(block_index),
+          blockheight: Some(*block_height),
           blocktime: None,
           wallet_conflicts: Vec::new(),
           bip125_replaceable: Bip125Replaceable::Unknown,
