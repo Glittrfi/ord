@@ -217,11 +217,7 @@ impl Api for Server {
     })
   }
 
-  fn get_block(
-    &self,
-    block_hash: BlockHash,
-    verbosity: u64,
-  ) -> Result<String, jsonrpc_core::Error> {
+  fn get_block(&self, block_hash: BlockHash, verbosity: u64) -> Result<Value, jsonrpc_core::Error> {
     let state = self.state();
 
     let block = match state.blocks.get(&block_hash) {
@@ -248,30 +244,30 @@ impl Api for Server {
         hash: block_hash,
         confirmations: 0,
         size: 0,
-        strippedsize: None,
+        strippedsize: Some(0),
         weight: 0,
         height: *block_height as usize,
         version: 0,
-        version_hex: None,
+        version_hex: Some(Vec::new()),
         merkleroot: TxMerkleNode::all_zeros(),
         tx,
         time: 0,
-        mediantime: None,
+        mediantime: Some(0),
         nonce: 0,
         bits: String::new(),
         difficulty: 0.0,
         chainwork: Vec::new(),
         n_tx: 0,
-        previousblockhash: None,
-        nextblockhash: None,
+        previousblockhash: Some(block_hash),
+        nextblockhash: Some(block_hash),
       };
 
-      return Ok(hex::encode(serde_json::to_vec(&block_result).unwrap()));
+      return Ok(serde_json::to_value(&block_result).unwrap());
     }
 
     assert_eq!(verbosity, 0, "Verbosity level {verbosity} is unsupported");
 
-    Ok(hex::encode(serialize(block)))
+    Ok(Value::String(hex::encode(serialize(block))))
   }
 
   fn get_block_count(&self) -> Result<u64, jsonrpc_core::Error> {
